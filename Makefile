@@ -40,8 +40,8 @@ $(BUILD)/kernel.bin: $(BUILD)/kernel.elf
 	@$(OBJCOPY) -O binary $< $@
 
 # Final OS image
-$(BUILD)/os.bin: $(BOOT_BIN) $(BUILD)/kernel.bin
-	@cat $(BOOT_BIN) $(BUILD)/kernel.bin > $@
+$(BUILD)/os.bin: $(BUILD)/boot/boot.bin $(BUILD)/boot/stage2.bin $(BUILD)/kernel.bin
+	@cat $^ > $@
 
 clean:
 	@rm -rf $(BUILD)
