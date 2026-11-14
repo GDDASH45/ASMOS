@@ -20,13 +20,13 @@ all: $(BUILD)/os.bin
 # Bootloader: flat binary
 $(BUILD)/boot/%.bin: boot/%.asm
 	@mkdir -p $(dir $@)
-	@echo " NASM    $<"
+	@echo " NASM    $@"
 	@$(NASM) -f bin $< -o $@
 
 # Kernel: ELF32 objects
 $(BUILD)/kernel/%.o: kernel/%.asm
 	@mkdir -p $(dir $@)
-	@echo " NASM    $<"
+	@echo " NASM    $@"
 	@$(NASM) $(NASMFLAGS) $< -o $@
 
 # Link kernel into ELF32
