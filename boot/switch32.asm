@@ -1,24 +1,20 @@
 BITS 16
-ORG 0x8000
+ORG 0x8200
 
 switch_to_32:
     cli
 
-    ; Load GDT
     lgdt [gdt_descriptor]
 
-    ; Enable protected mode
     mov eax, cr0
     or eax, 1
     mov cr0, eax
 
-    ; Enter 32-bit protected mode
     jmp 0x08:protected_mode
 
 BITS 32
 
 protected_mode:
-    ; Initialize segments
     mov ax, 0x10
     mov ds, ax
     mov es, ax
@@ -26,13 +22,19 @@ protected_mode:
     mov gs, ax
     mov ss, ax
 
-    ; Initialize stack
     mov esp, 0x90000
 
-    ; Continue booting
-    jmp $
+    ; Copy the 16 KiB kernel to its linked address
+    cld
+    mov esi, 0x10000
+    mov edi, 0x100000
+    mov ecx, 4096
+    rep movsd
 
-ALIGN 8
+    ; Jump to kernel entry
+    jmp 0x08:0x100000
+
+align 8
 
 gdt_start:
     dq 0x0000000000000000
@@ -43,3 +45,5 @@ gdt_end:
 gdt_descriptor:
     dw gdt_end - gdt_start - 1
     dd gdt_start
+
+times 512 - ($ - $$) db 0

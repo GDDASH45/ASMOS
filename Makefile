@@ -7,40 +7,58 @@ LDFLAGS := -m elf_i386 -T kernel/linker.ld
 
 BUILD := build
 
-BOOT_SRC := $(shell find boot -type f -name '*.asm')
 KERNEL_SRC := $(shell find kernel -type f -name '*.asm')
-
-BOOT_BIN := $(patsubst boot/%.asm,$(BUILD)/boot/%.bin,$(BOOT_SRC))
 KERNEL_OBJ := $(patsubst kernel/%.asm,$(BUILD)/kernel/%.o,$(KERNEL_SRC))
 
 .PHONY: all clean
 
 all: $(BUILD)/os.bin
 
-# Bootloader: flat binary
-$(BUILD)/boot/%.bin: boot/%.asm
+# Boot sector
+$(BUILD)/boot/boot.bin: boot/boot.asm
 	@mkdir -p $(dir $@)
 	@echo " NASM    $@"
 	@$(NASM) -f bin $< -o $@
 
-# Kernel: ELF32 objects
+# Stage 2
+$(BUILD)/boot/stage2.bin: boot/stage2.asm
+	@mkdir -p $(dir $@)
+	@echo " NASM    $@"
+	@$(NASM) -f bin $< -o $@
+
+# Protected-mode switch
+$(BUILD)/boot/switch32.bin: boot/switch32.asm
+	@mkdir -p $(dir $@)
+	@echo " NASM    $@"
+	@$(NASM) -f bin $< -o $@
+
+# Kernel ELF32 objects
 $(BUILD)/kernel/%.o: kernel/%.asm
 	@mkdir -p $(dir $@)
 	@echo " NASM    $@"
 	@$(NASM) $(NASMFLAGS) $< -o $@
 
-# Link kernel into ELF32
-$(BUILD)/kernel.elf: $(KERNEL_OBJ)
+# Link kernel
+$(BUILD)/kernel.elf: $(KERNEL_OBJ) kernel/linker.ld
+	@mkdir -p $(dir $@)
 	@echo " LD      $@"
-	@$(LD) $(LDFLAGS) -o $@ $^
+	@$(LD) $(LDFLAGS) -o $@ $(KERNEL_OBJ)
 
-# Convert ELF32 kernel into flat binary
+# Convert kernel to a fixed 16 KiB disk area
 $(BUILD)/kernel.bin: $(BUILD)/kernel.elf
 	@echo " OBJCOPY $@"
 	@$(OBJCOPY) -O binary $< $@
+	@test "$$(stat -c%s $@)" -le 16384 || \
+		{ echo "ERROR: Kernel exceeds 16 KiB"; rm -f $@; exit 1; }
+	@truncate -s 16384 $@
 
-# Final OS image
-$(BUILD)/os.bin: $(BUILD)/boot/boot.bin $(BUILD)/boot/stage2.bin $(BUILD)/kernel.bin
+# Final disk image
+$(BUILD)/os.bin: \
+	$(BUILD)/boot/boot.bin \
+	$(BUILD)/boot/stage2.bin \
+	$(BUILD)/boot/switch32.bin \
+	$(BUILD)/kernel.bin
+	@echo " CAT     $@"
 	@cat $^ > $@
 
 clean:
